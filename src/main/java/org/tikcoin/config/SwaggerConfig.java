@@ -21,7 +21,7 @@ public class SwaggerConfig {
                         .version("1.0")
                         .description("API documentation for TikCoin Application"))
                 .servers(List.of(
-                        new Server().url(""),
+                        new Server().url("https://tikcoinbackend.onrender.com"),
                         new Server().url("http://localhost:8082")
                 ))
                 .components(new Components()
