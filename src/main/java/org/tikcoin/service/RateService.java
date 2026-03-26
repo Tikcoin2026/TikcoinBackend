@@ -6,9 +6,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.tikcoin.dto.request.CoinRateRequest;
 import org.tikcoin.dto.response.CoinRateResponse;
+import org.tikcoin.dto.response.NotificationResponse;
 import org.tikcoin.dto.response.OrderResponse;
 import org.tikcoin.exception.ResourceNotFoundException;
 import org.tikcoin.model.CoinRate;
+import org.tikcoin.model.Notification;
 import org.tikcoin.model.Order;
 import org.tikcoin.repository.CoinRateRepository;
 import org.tikcoin.repository.OrderRepository;
@@ -24,6 +26,7 @@ public class RateService {
 
     private final CoinRateRepository coinRateRepository;
     private final OrderRepository orderRepository;
+    private final NotificationService notificationService;
     private final SimpMessagingTemplate messagingTemplate;
 
     public BigDecimal getCurrentNairaPerCoin() {
@@ -59,12 +62,26 @@ public class RateService {
             order.setUpdatedAt(LocalDateTime.now());
         }
         List<Order> updatedOrders = orderRepository.saveAll(orders);
+
+        CoinRateResponse rateResponse = toResponse(coinRate);
+
+        Notification notification = notificationService.createRateChangeNotification(nairaPerCoin, request.getRate());
+        NotificationResponse notificationResponse = NotificationResponse.builder()
+                .id(notification.getId())
+                .title(notification.getTitle())
+                .timestamp(notification.getTimestamp())
+                .build();
+
+        messagingTemplate.convertAndSend("/topic/rate", rateResponse);
+
         List<OrderResponse> orderResponses = updatedOrders.stream()
                 .map(this::toOrderResponse)
                 .toList();
         messagingTemplate.convertAndSend("/topic/orders", orderResponses);
 
-        return toResponse(coinRate);
+        messagingTemplate.convertAndSend("/topic/notifications", notificationResponse);
+
+        return rateResponse;
     }
 
     private CoinRateResponse toResponse(CoinRate coinRate) {
