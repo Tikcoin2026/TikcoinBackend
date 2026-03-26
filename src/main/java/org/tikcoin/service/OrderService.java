@@ -8,6 +8,7 @@ import org.tikcoin.exception.ResourceNotFoundException;
 import org.tikcoin.model.Order;
 import org.tikcoin.repository.OrderRepository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -16,12 +17,14 @@ import java.util.List;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final RateService rateService;
 
     public OrderResponse createOrder(OrderRequest request) {
+        BigDecimal currentRate = rateService.getCurrentNairaPerCoin();
         Order order = Order.builder()
-                .rate(request.getRate())
-                .amount(request.getAmount())
-                .totalAmount(request.getRate().multiply(java.math.BigDecimal.valueOf(request.getAmount())))
+                .rate(currentRate)
+                .amount(request.getCoinAmount())
+                .totalAmount(currentRate.multiply(BigDecimal.valueOf(request.getCoinAmount())))
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -30,9 +33,10 @@ public class OrderService {
 
     public OrderResponse updateOrder(Long id, OrderRequest request) {
         Order order = findOrThrow(id);
-        order.setRate(request.getRate());
-        order.setAmount(request.getAmount());
-        order.setTotalAmount(request.getRate().multiply(java.math.BigDecimal.valueOf(request.getAmount())));
+        BigDecimal currentRate = rateService.getCurrentNairaPerCoin();
+        order.setAmount(request.getCoinAmount());
+        order.setRate(currentRate);
+        order.setTotalAmount(currentRate.multiply(BigDecimal.valueOf(request.getCoinAmount())));
         order.setUpdatedAt(LocalDateTime.now());
         return toResponse(orderRepository.save(order));
     }

@@ -6,10 +6,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.tikcoin.dto.request.CoinRateRequest;
 import org.tikcoin.dto.request.OrderRequest;
 import org.tikcoin.dto.response.ApiResponseDto;
+import org.tikcoin.dto.response.CoinRateResponse;
 import org.tikcoin.dto.response.OrderResponse;
 import org.tikcoin.service.OrderService;
+import org.tikcoin.service.RateService;
 
 import java.util.List;
 
@@ -20,6 +23,21 @@ import java.util.List;
 public class AdminController {
 
     private final OrderService orderService;
+    private final RateService rateService;
+
+    @PostMapping("/rate")
+    public ResponseEntity<ApiResponseDto<CoinRateResponse>> setRate(
+            @Valid @RequestBody CoinRateRequest request) {
+        CoinRateResponse rate = rateService.setRate(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponseDto.success("Coin rate set successfully. All orders recalculated.", rate));
+    }
+
+    @GetMapping("/rate")
+    public ResponseEntity<ApiResponseDto<CoinRateResponse>> getRate() {
+        CoinRateResponse rate = rateService.getCurrentRate();
+        return ResponseEntity.ok(ApiResponseDto.success("Current coin rate fetched successfully", rate));
+    }
 
     @PostMapping("/orders")
     public ResponseEntity<ApiResponseDto<OrderResponse>> createOrder(

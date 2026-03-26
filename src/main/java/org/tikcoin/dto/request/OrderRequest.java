@@ -4,15 +4,12 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
-import java.math.BigDecimal;
-
 @Data
 public class OrderRequest {
-    @NotNull(message = "Rate is required")
-    @Min(value = 1, message = "Rate must be greater than zero")
-    private BigDecimal rate;
 
-    @NotNull(message = "Amount is required")
-    @Min(value = 1, message = "Amount must be at least 1")
-    private Long amount;
+    // Number of coins, e.g. 500 for a 500-coin order.
+    // The naira total is calculated automatically using the current coin rate.
+    @NotNull(message = "Coin amount is required")
+    @Min(value = 1, message = "Coin amount must be at least 1")
+    private Long coinAmount;
 }

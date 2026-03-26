@@ -13,7 +13,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/orders")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('BUYER')")
 public class UserController {
 
     private final OrderService orderService;
