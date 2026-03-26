@@ -17,6 +17,13 @@ public class CoinRate {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(nullable = false)
+    private BigDecimal rate;
+
+    @Column(nullable = false)
+    private BigDecimal amount;
+
     @Column(nullable = false)
     private BigDecimal nairaPerCoin;
 

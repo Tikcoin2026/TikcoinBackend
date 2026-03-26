@@ -44,6 +44,8 @@ public class RateService {
                 .divide(request.getRate(), 10, RoundingMode.HALF_UP);
 
         CoinRate coinRate = CoinRate.builder()
+                .rate(request.getRate())
+                .amount(request.getAmount())
                 .nairaPerCoin(nairaPerCoin)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
@@ -68,6 +70,8 @@ public class RateService {
     private CoinRateResponse toResponse(CoinRate coinRate) {
         return CoinRateResponse.builder()
                 .id(coinRate.getId())
+                .rate(coinRate.getRate())
+                .amount(coinRate.getAmount())
                 .nairaPerCoin(coinRate.getNairaPerCoin())
                 .createdAt(coinRate.getCreatedAt())
                 .updatedAt(coinRate.getUpdatedAt())

@@ -10,6 +10,8 @@ import java.time.LocalDateTime;
 @Builder
 public class CoinRateResponse {
     private Long id;
+    private BigDecimal rate;
+    private BigDecimal amount;
     private BigDecimal nairaPerCoin;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
