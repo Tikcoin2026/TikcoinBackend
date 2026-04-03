@@ -6,8 +6,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.tikcoin.dto.request.TikTokLoginRequest;
 import org.tikcoin.dto.response.AuthResponse;
 import org.tikcoin.dto.response.UserResponse;
+import org.tikcoin.enums.LoginPlatform;
 import org.tikcoin.enums.TokenType;
 import org.tikcoin.enums.UserRole;
+import org.tikcoin.model.Admin;
 import org.tikcoin.model.Buyer;
 import org.tikcoin.model.Token;
 import org.tikcoin.repository.AdminRepository;
@@ -51,13 +53,24 @@ public class AuthService {
         String avatarUrl   = (String) userInfo.get("avatar_url");
         String username    = (String) userInfo.get("username");
 
-        var adminOpt = adminRepository.findByTiktokOpenId(openId);
-        if (adminOpt.isPresent()) {
-            var admin = adminOpt.get();
+        if (request.getPlatform() == LoginPlatform.MOBILE) {
+            Admin admin = adminRepository.findByTiktokOpenId(openId).orElseGet(() -> {
+                Admin newAdmin = new Admin();
+                newAdmin.setTiktokOpenId(openId);
+                newAdmin.setRole(UserRole.ADMIN);
+                newAdmin.setCreatedAt(LocalDateTime.now());
+                return newAdmin;
+            });
+
             admin.setTiktokUsername(displayName);
             admin.setTiktokHandle(username);
             admin.setProfilePicture(avatarUrl);
             admin.setUpdatedAt(LocalDateTime.now());
+
+            if (request.getFcmToken() != null && !request.getFcmToken().isBlank()) {
+                admin.setFcmToken(request.getFcmToken());
+            }
+
             adminRepository.save(admin);
 
             return issueTokens(admin.getUsername(), admin.getId(), openId, displayName,

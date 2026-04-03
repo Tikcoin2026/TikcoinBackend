@@ -23,9 +23,6 @@ public class FirebaseNotificationService {
 
     private final AdminRepository adminRepository;
 
-    /**
-     * Sends a push notification to all admins that have registered an FCM token.
-     */
     public void notifyAdminsOfNewPayment(String buyerDisplayName, BigDecimal amount, Long coinAmount) {
         if (FirebaseApp.getApps().isEmpty()) {
             logger.error("Firebase is NOT initialized — FIREBASE_SERVICE_ACCOUNT_BASE64 may not be set on the server");
@@ -58,9 +55,7 @@ public class FirebaseNotificationService {
             logger.warn("Skipping FCM — token is null or blank");
             return;
         }
-
         logger.info("Sending FCM to token ending in ...{}", fcmToken.substring(Math.max(0, fcmToken.length() - 10)));
-
         Message message = Message.builder()
                 .setNotification(Notification.builder()
                         .setTitle(title)
