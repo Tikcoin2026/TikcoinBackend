@@ -54,13 +54,19 @@ public class AuthService {
         String username    = (String) userInfo.get("username");
 
         if (request.getPlatform() == LoginPlatform.MOBILE) {
-            Admin admin = adminRepository.findByTiktokOpenId(openId).orElseGet(() -> {
-                Admin newAdmin = new Admin();
-                newAdmin.setTiktokOpenId(openId);
-                newAdmin.setRole(UserRole.ADMIN);
-                newAdmin.setCreatedAt(LocalDateTime.now());
-                return newAdmin;
-            });
+            Admin admin = adminRepository.findByTiktokOpenId(openId).orElse(null);
+
+            if (admin == null) {
+                buyerRepository.findByTiktokOpenId(openId).ifPresent(buyer -> {
+                    buyerRepository.delete(buyer);
+                    buyerRepository.flush();
+                });
+
+                admin = new Admin();
+                admin.setTiktokOpenId(openId);
+                admin.setRole(UserRole.ADMIN);
+                admin.setCreatedAt(LocalDateTime.now());
+            }
 
             admin.setTiktokUsername(displayName);
             admin.setTiktokHandle(username);
