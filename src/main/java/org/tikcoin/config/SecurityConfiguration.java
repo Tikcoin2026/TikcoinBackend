@@ -69,6 +69,7 @@ public class SecurityConfiguration {
                                         "/api/admin/orders",
                                         "/api/admin/orders/**",
                                         "/api/admin/transactions",
+                                        "/api/payment/verify/**",
                                         "/api/orders",
                                         "/api/orders/**",
                                         "/api/notifications",

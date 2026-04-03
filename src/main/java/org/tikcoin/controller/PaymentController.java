@@ -2,6 +2,8 @@ package org.tikcoin.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import org.tikcoin.dto.request.PaymentInitRequest;
 import org.tikcoin.dto.response.ApiResponseDto;
 import org.tikcoin.dto.response.PaymentInitResponse;
+import org.tikcoin.dto.response.TransactionResponse;
 import org.tikcoin.service.PaymentService;
 
 @RestController
@@ -17,6 +20,7 @@ import org.tikcoin.service.PaymentService;
 @RequiredArgsConstructor
 public class PaymentController {
 
+    private static final Logger logger = LoggerFactory.getLogger(PaymentController.class);
     private final PaymentService paymentService;
 
     /**
@@ -37,16 +41,31 @@ public class PaymentController {
      * Paystack webhook handler. Called by Paystack when a payment event occurs.
      * Signature is verified using HMAC-SHA512.
      */
+    /**
+     * Manually verify a payment by reference. Useful if the webhook was missed.
+     * Public endpoint — only needs the reference.
+     */
+    @GetMapping("/payment/verify/{reference}")
+    public ResponseEntity<ApiResponseDto<TransactionResponse>> verifyPayment(
+            @PathVariable String reference) {
+        TransactionResponse transaction = paymentService.verifyPayment(reference);
+        return ResponseEntity.ok(ApiResponseDto.success("Payment verified", transaction));
+    }
+
     @PostMapping("/webhook/paystack")
     public ResponseEntity<Void> handlePaystackWebhook(
             @RequestBody String payload,
             @RequestHeader(value = "x-paystack-signature", required = false) String signature) {
 
-        if (signature == null || signature.isBlank()) {
-            return ResponseEntity.badRequest().build();
+        logger.info("Paystack webhook received — signature present: {}", signature != null);
+        logger.info("Paystack webhook payload: {}", payload);
+
+        try {
+            paymentService.handleWebhook(payload, signature);
+        } catch (Exception e) {
+            logger.error("Paystack webhook error: {}", e.getMessage());
         }
 
-        paymentService.handleWebhook(payload, signature);
         return ResponseEntity.ok().build();
     }
 }

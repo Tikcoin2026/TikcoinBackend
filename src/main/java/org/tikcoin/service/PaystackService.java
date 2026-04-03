@@ -66,6 +66,39 @@ public class PaystackService {
         }
     }
 
+    /**
+     * Verifies a transaction directly with Paystack using the reference.
+     * Returns the transaction data map if successful, or throws BadRequestException.
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> verifyTransaction(String reference) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(secretKey);
+
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    PAYSTACK_BASE_URL + "/transaction/verify/" + reference,
+                    org.springframework.http.HttpMethod.GET,
+                    entity,
+                    Map.class);
+
+            Map<String, Object> responseBody = response.getBody();
+            if (responseBody == null || !Boolean.TRUE.equals(responseBody.get("status"))) {
+                String msg = responseBody != null ? String.valueOf(responseBody.get("message")) : "null response";
+                throw new BadRequestException("Payment verification failed: " + msg);
+            }
+
+            return (Map<String, Object>) responseBody.get("data");
+        } catch (BadRequestException e) {
+            throw e;
+        } catch (Exception e) {
+            logger.error("Paystack verify error", e);
+            throw new BadRequestException("Payment verification failed: " + e.getMessage());
+        }
+    }
+
     public boolean verifyWebhookSignature(String payload, String signature) {
         try {
             Mac mac = Mac.getInstance("HmacSHA512");

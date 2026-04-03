@@ -130,6 +130,37 @@ public class PaymentService {
         }
     }
 
+    @Transactional
+    public TransactionResponse verifyPayment(String reference) {
+        Payment payment = paymentRepository.findByPaystackReference(reference)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not found for reference: " + reference));
+
+        if (payment.getPaymentStatus() == PaymentStatus.SUCCESS) {
+            return toTransactionResponse(payment);
+        }
+
+        Map<String, Object> data = paystackService.verifyTransaction(reference);
+        String status = (String) data.get("status");
+
+        if ("success".equalsIgnoreCase(status)) {
+            payment.setPaymentStatus(PaymentStatus.SUCCESS);
+            payment.setPaidAt(LocalDateTime.now());
+            paymentRepository.save(payment);
+
+            logger.info("Payment {} manually verified and marked as successful", reference);
+
+            String displayName = payment.getBuyer() != null
+                    ? payment.getBuyer().getTiktokUsername() : "Unknown";
+            firebaseNotificationService.notifyAdminsOfNewPayment(
+                    displayName, payment.getAmount(), payment.getCoinAmount());
+        } else if ("failed".equalsIgnoreCase(status)) {
+            payment.setPaymentStatus(PaymentStatus.FAILED);
+            paymentRepository.save(payment);
+        }
+
+        return toTransactionResponse(payment);
+    }
+
     public List<TransactionResponse> getAllTransactions() {
         return paymentRepository.findAllByOrderByCreatedAtDesc().stream()
                 .map(this::toTransactionResponse)
