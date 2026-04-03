@@ -5,16 +5,23 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.tikcoin.dto.request.CoinRateRequest;
 import org.tikcoin.dto.request.OrderRequest;
 import org.tikcoin.dto.response.ApiResponseDto;
 import org.tikcoin.dto.response.CoinRateResponse;
 import org.tikcoin.dto.response.OrderResponse;
+import org.tikcoin.dto.response.TransactionResponse;
+import org.tikcoin.model.Admin;
+import org.tikcoin.repository.AdminRepository;
 import org.tikcoin.service.OrderService;
+import org.tikcoin.service.PaymentService;
 import org.tikcoin.service.RateService;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -24,6 +31,8 @@ public class AdminController {
 
     private final OrderService orderService;
     private final RateService rateService;
+    private final PaymentService paymentService;
+    private final AdminRepository adminRepository;
 
     @PostMapping("/rate")
     public ResponseEntity<ApiResponseDto<CoinRateResponse>> setRate(
@@ -71,5 +80,27 @@ public class AdminController {
     public ResponseEntity<ApiResponseDto<List<OrderResponse>>> getAllOrders() {
         List<OrderResponse> orders = orderService.getAllOrders();
         return ResponseEntity.ok(ApiResponseDto.success("Orders fetched successfully", orders));
+    }
+
+    @GetMapping("/transactions")
+    public ResponseEntity<ApiResponseDto<List<TransactionResponse>>> getAllTransactions() {
+        List<TransactionResponse> transactions = paymentService.getAllTransactions();
+        return ResponseEntity.ok(ApiResponseDto.success("Transactions fetched successfully", transactions));
+    }
+
+    @PostMapping("/fcm-token")
+    public ResponseEntity<ApiResponseDto<Void>> registerFcmToken(
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserDetails currentUser) {
+        String token = body.get("fcmToken");
+        if (token == null || token.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponseDto.error("fcmToken is required"));
+        }
+        adminRepository.findByTiktokOpenId(currentUser.getUsername()).ifPresent(admin -> {
+            admin.setFcmToken(token);
+            adminRepository.save(admin);
+        });
+        return ResponseEntity.ok(ApiResponseDto.success("FCM token registered successfully"));
     }
 }
