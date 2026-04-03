@@ -20,6 +20,9 @@ import org.tikcoin.service.OrderService;
 import org.tikcoin.service.PaymentService;
 import org.tikcoin.service.RateService;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +31,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 //@PreAuthorize("hasRole('ADMIN')")
 public class AdminController {
+
+    private static final Logger logger = LoggerFactory.getLogger(AdminController.class);
 
     private final OrderService orderService;
     private final RateService rateService;
@@ -97,10 +102,28 @@ public class AdminController {
             return ResponseEntity.badRequest()
                     .body(ApiResponseDto.error("fcmToken is required"));
         }
-        adminRepository.findByTiktokOpenId(currentUser.getUsername()).ifPresent(admin -> {
-            admin.setFcmToken(token);
-            adminRepository.save(admin);
-        });
+
+        if (currentUser == null) {
+            logger.error("FCM token registration failed — no authenticated user");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponseDto.error("Authentication required"));
+        }
+
+        String username = currentUser.getUsername();
+        logger.info("Registering FCM token for user: {}", username);
+
+        var adminOpt = adminRepository.findByTiktokOpenId(username);
+        if (adminOpt.isEmpty()) {
+            logger.error("FCM token registration failed — no admin found with tiktokOpenId: {}", username);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponseDto.error("Admin not found"));
+        }
+
+        Admin admin = adminOpt.get();
+        admin.setFcmToken(token);
+        adminRepository.save(admin);
+        logger.info("FCM token saved for admin id: {}", admin.getId());
+
         return ResponseEntity.ok(ApiResponseDto.success("FCM token registered successfully"));
     }
 }
