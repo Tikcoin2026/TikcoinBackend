@@ -58,7 +58,8 @@ public class AuthService {
 
             if (admin == null) {
                 buyerRepository.findByTiktokOpenId(openId).ifPresent(buyer -> {
-                    buyerRepository.delete(buyer);
+                    buyer.setTiktokOpenId(null);
+                    buyerRepository.save(buyer);
                     buyerRepository.flush();
                 });
 
