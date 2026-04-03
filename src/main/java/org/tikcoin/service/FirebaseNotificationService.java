@@ -28,21 +28,25 @@ public class FirebaseNotificationService {
      */
     public void notifyAdminsOfNewPayment(String buyerDisplayName, BigDecimal amount, Long coinAmount) {
         if (FirebaseApp.getApps().isEmpty()) {
-            logger.warn("Firebase not initialized — skipping push notification");
+            logger.error("Firebase is NOT initialized — FIREBASE_SERVICE_ACCOUNT_BASE64 may not be set on the server");
             return;
         }
 
         List<Admin> admins = adminRepository.findAllWithFcmToken();
+        logger.info("Found {} admin(s) with FCM tokens", admins.size());
+
         if (admins.isEmpty()) {
-            logger.info("No admin FCM tokens registered — skipping push notification");
+            logger.warn("No admin FCM tokens registered — call POST /api/admin/fcm-token first");
             return;
         }
 
         String title = "New Payment Received";
-        String body = String.format("%s just paid ₦%s for %d TikCoin(s)!",
+        String body = String.format("%s just paid \u20a6%s for %d TikCoin(s)!",
                 buyerDisplayName != null ? buyerDisplayName : "A user",
                 amount.toPlainString(),
                 coinAmount);
+
+        logger.info("Sending FCM notification: title='{}', body='{}'", title, body);
 
         for (Admin admin : admins) {
             sendToDevice(admin.getFcmToken(), title, body);
@@ -50,7 +54,12 @@ public class FirebaseNotificationService {
     }
 
     private void sendToDevice(String fcmToken, String title, String body) {
-        if (fcmToken == null || fcmToken.isBlank()) return;
+        if (fcmToken == null || fcmToken.isBlank()) {
+            logger.warn("Skipping FCM — token is null or blank");
+            return;
+        }
+
+        logger.info("Sending FCM to token ending in ...{}", fcmToken.substring(Math.max(0, fcmToken.length() - 10)));
 
         Message message = Message.builder()
                 .setNotification(Notification.builder()
@@ -62,9 +71,9 @@ public class FirebaseNotificationService {
 
         try {
             String messageId = FirebaseMessaging.getInstance().send(message);
-            logger.info("FCM notification sent: {}", messageId);
+            logger.info("FCM notification sent successfully, messageId: {}", messageId);
         } catch (FirebaseMessagingException e) {
-            logger.error("Failed to send FCM notification to token {}: {}", fcmToken, e.getMessage());
+            logger.error("Failed to send FCM notification: {} — errorCode: {}", e.getMessage(), e.getMessagingErrorCode());
         }
     }
 }
