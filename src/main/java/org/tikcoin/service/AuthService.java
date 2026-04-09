@@ -9,6 +9,7 @@ import org.tikcoin.dto.response.UserResponse;
 import org.tikcoin.enums.LoginPlatform;
 import org.tikcoin.enums.TokenType;
 import org.tikcoin.enums.UserRole;
+import org.tikcoin.exception.UnauthorizedException;
 import org.tikcoin.model.Admin;
 import org.tikcoin.model.Buyer;
 import org.tikcoin.model.Token;
@@ -102,6 +103,55 @@ public class AuthService {
                 username, avatarUrl, UserRole.BUYER, tiktokRefreshToken);
     }
 
+    @Transactional
+    public AuthResponse refreshAccessToken(String refreshToken) {
+        Token storedToken = tokenRepository.findByToken(refreshToken)
+                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
+
+        if (storedToken.isExpired() || storedToken.isRevoked()) {
+            throw new UnauthorizedException("Refresh token has expired or been revoked");
+        }
+
+        if (storedToken.getTokenType() != TokenType.REFRESH) {
+            throw new UnauthorizedException("Invalid token type");
+        }
+
+        String subject = jwtService.extractUsername(refreshToken);
+        if (subject == null) {
+            throw new UnauthorizedException("Invalid refresh token");
+        }
+
+        // Revoke the old refresh token
+        storedToken.setRevoked(true);
+        storedToken.setExpired(true);
+        tokenRepository.save(storedToken);
+
+        // Issue new access + refresh tokens
+        String newAccessToken = jwtService.generateToken(subject);
+        String newRefreshToken = jwtService.generateRefreshToken(subject);
+
+        tokenRepository.save(Token.builder()
+                .token(newAccessToken)
+                .tokenType(TokenType.BEARER)
+                .isRevoked(false)
+                .isExpired(false)
+                .userType(storedToken.getUserType())
+                .build());
+
+        tokenRepository.save(Token.builder()
+                .token(newRefreshToken)
+                .tokenType(TokenType.REFRESH)
+                .isRevoked(false)
+                .isExpired(false)
+                .userType(storedToken.getUserType())
+                .build());
+
+        return AuthResponse.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(newRefreshToken)
+                .build();
+    }
+
     private AuthResponse issueTokens(String subject, Long userId, String openId,
                                      String displayName, String handle, String avatarUrl,
                                      UserRole role, String tiktokRefreshToken) {
@@ -115,6 +165,14 @@ public class AuthService {
                 .isExpired(false)
                 .userType(role.name())
                 .value(tiktokRefreshToken)
+                .build());
+
+        tokenRepository.save(Token.builder()
+                .token(refreshToken)
+                .tokenType(TokenType.REFRESH)
+                .isRevoked(false)
+                .isExpired(false)
+                .userType(role.name())
                 .build());
 
         UserResponse user = UserResponse.builder()

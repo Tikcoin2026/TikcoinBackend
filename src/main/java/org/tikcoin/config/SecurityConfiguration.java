@@ -58,6 +58,7 @@ public class SecurityConfiguration {
                                         "/api/auth/tiktok/authorize",
                                         "/api/auth/tiktok/callback",
                                         "/api/auth/login",
+                                        "/api/auth/refresh",
                                         "/api/webhook/paystack",
                                         "/swagger-ui.html",
                                         "/swagger-ui/**",

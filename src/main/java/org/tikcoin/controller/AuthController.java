@@ -72,4 +72,16 @@ public class AuthController {
         AuthResponse response = authService.login(request);
         return ResponseEntity.ok(ApiResponseDto.success("Login successful", response));
     }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponseDto<AuthResponse>> refresh(
+            @RequestHeader("Authorization") String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponseDto.error("Refresh token is required"));
+        }
+        String refreshToken = authHeader.substring(7);
+        AuthResponse response = authService.refreshAccessToken(refreshToken);
+        return ResponseEntity.ok(ApiResponseDto.success("Token refreshed successfully", response));
+    }
 }

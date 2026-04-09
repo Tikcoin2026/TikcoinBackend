@@ -49,6 +49,7 @@ public class JwtFilter extends OncePerRequestFilter  {
             String path = request.getServletPath();
             if (path.equals("/api/auth/login")
                     || path.equals("/api/auth/register")
+                    || path.equals("/api/auth/refresh")
                     || path.startsWith("/api/auth/tiktok")
                     || path.equals("/api/admin/register")) {
                 logger.info("Skipping JWT filter for public path: {}", path);
