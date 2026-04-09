@@ -30,10 +30,10 @@ public class AuthService {
     private final AdminRepository adminRepository;
     private final TokenRepository tokenRepository;
 
-    public Map<String, String> buildAuthorizationUrl(String redirectUri) {
+    public Map<String, String> buildAuthorizationUrl(String redirectUri, String platform) {
         String codeVerifier = tikTokService.generateCodeVerifier();
         String codeChallenge = tikTokService.generateCodeChallenge(codeVerifier);
-        String state = UUID.randomUUID().toString();
+        String state = UUID.randomUUID().toString() + "." + (platform != null ? platform.toUpperCase() : "MOBILE");
         String authUrl = tikTokService.buildAuthorizationUrl(redirectUri, state, codeChallenge);
         return Map.of("authUrl", authUrl, "codeVerifier", codeVerifier, "state", state);
     }

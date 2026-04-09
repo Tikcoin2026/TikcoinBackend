@@ -2,6 +2,7 @@ package org.tikcoin.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,7 +14,6 @@ import org.tikcoin.service.AuthService;
 
 import java.net.URI;
 import java.util.Map;
-import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -22,10 +22,14 @@ public class AuthController {
 
     private final AuthService authService;
 
+    @Value("${app.web.callback-url}")
+    private String webCallbackUrl;
+
     @GetMapping("/tiktok/authorize")
     public ResponseEntity<ApiResponseDto<Map<String, String>>> getAuthorizationUrl(
-            @RequestParam String redirectUri) {
-        Map<String, String> result = authService.buildAuthorizationUrl(redirectUri);
+            @RequestParam String redirectUri,
+            @RequestParam(defaultValue = "MOBILE") String platform) {
+        Map<String, String> result = authService.buildAuthorizationUrl(redirectUri, platform);
         return ResponseEntity.ok(ApiResponseDto.success("TikTok authorization URL generated", result));
     }
 
@@ -36,15 +40,29 @@ public class AuthController {
             @RequestParam(required = false) String error,
             @RequestParam(required = false) String error_description) {
 
-        String deepLink;
-        if (error != null) {
-            deepLink = "tikcoin://auth/callback?error=" + error;
+
+        String platform = "MOBILE";
+        if (state != null && state.contains(".")) {
+            platform = state.substring(state.lastIndexOf('.') + 1).toUpperCase();
+        }
+
+        String redirectLocation;
+        if ("WEB".equals(platform)) {
+            if (error != null) {
+                redirectLocation = webCallbackUrl + "?error=" + error;
+            } else {
+                redirectLocation = webCallbackUrl + "?code=" + code + "&state=" + state;
+            }
         } else {
-            deepLink = "tikcoin://auth/callback?code=" + code + "&state=" + state;
+            if (error != null) {
+                redirectLocation = "tikcoin://auth/callback?error=" + error;
+            } else {
+                redirectLocation = "tikcoin://auth/callback?code=" + code + "&state=" + state;
+            }
         }
 
         HttpHeaders headers = new HttpHeaders();
-        headers.setLocation(URI.create(deepLink));
+        headers.setLocation(URI.create(redirectLocation));
         return new ResponseEntity<>(headers, HttpStatus.FOUND);
     }
 
