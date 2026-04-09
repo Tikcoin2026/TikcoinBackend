@@ -112,10 +112,6 @@ public class AuthService {
             throw new UnauthorizedException("Refresh token has expired or been revoked");
         }
 
-        if (storedToken.getTokenType() != TokenType.REFRESH) {
-            throw new UnauthorizedException("Invalid token type");
-        }
-
         String subject = jwtService.extractUsername(refreshToken);
         if (subject == null) {
             throw new UnauthorizedException("Invalid refresh token");
@@ -140,7 +136,7 @@ public class AuthService {
 
         tokenRepository.save(Token.builder()
                 .token(newRefreshToken)
-                .tokenType(TokenType.REFRESH)
+                .tokenType(TokenType.BEARER)
                 .isRevoked(false)
                 .isExpired(false)
                 .userType(storedToken.getUserType())
@@ -169,7 +165,7 @@ public class AuthService {
 
         tokenRepository.save(Token.builder()
                 .token(refreshToken)
-                .tokenType(TokenType.REFRESH)
+                .tokenType(TokenType.BEARER)
                 .isRevoked(false)
                 .isExpired(false)
                 .userType(role.name())
