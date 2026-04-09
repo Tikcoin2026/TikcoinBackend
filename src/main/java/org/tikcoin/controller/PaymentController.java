@@ -23,10 +23,6 @@ public class PaymentController {
     private static final Logger logger = LoggerFactory.getLogger(PaymentController.class);
     private final PaymentService paymentService;
 
-    /**
-     * Initializes a Paystack payment for the selected order.
-     * Requires TikTok authentication (JWT Bearer token).
-     */
     @PostMapping("/payment/initialize")
     public ResponseEntity<ApiResponseDto<PaymentInitResponse>> initializePayment(
             @Valid @RequestBody PaymentInitRequest request,
@@ -37,19 +33,18 @@ public class PaymentController {
                 .body(ApiResponseDto.success("Payment initialized successfully", response));
     }
 
-    /**
-     * Paystack webhook handler. Called by Paystack when a payment event occurs.
-     * Signature is verified using HMAC-SHA512.
-     */
-    /**
-     * Manually verify a payment by reference. Useful if the webhook was missed.
-     * Public endpoint — only needs the reference.
-     */
     @GetMapping("/payment/verify/{reference}")
     public ResponseEntity<ApiResponseDto<TransactionResponse>> verifyPayment(
             @PathVariable String reference) {
         TransactionResponse transaction = paymentService.verifyPayment(reference);
         return ResponseEntity.ok(ApiResponseDto.success("Payment verified", transaction));
+    }
+
+    @GetMapping("/payment/{reference}/status")
+    public ResponseEntity<ApiResponseDto<TransactionResponse>> getPaymentStatus(
+            @PathVariable String reference) {
+        TransactionResponse response = paymentService.getPaymentStatus(reference);
+        return ResponseEntity.ok(ApiResponseDto.success("Payment status fetched", response));
     }
 
     @PostMapping("/webhook/paystack")

@@ -126,4 +126,23 @@ public class AdminController {
 
         return ResponseEntity.ok(ApiResponseDto.success("FCM token registered successfully"));
     }
+
+    @PostMapping("/payments/{paymentId}/qr-code")
+    public ResponseEntity<ApiResponseDto<TransactionResponse>> uploadQrCode(
+            @PathVariable Long paymentId,
+            @RequestBody Map<String, String> body) {
+        String qrCode = body.get("qrCode");
+        if (qrCode == null || qrCode.isBlank()) {
+            return ResponseEntity.badRequest().body(ApiResponseDto.error("qrCode (base64) is required"));
+        }
+        TransactionResponse response = paymentService.uploadQrCode(paymentId, qrCode);
+        return ResponseEntity.ok(ApiResponseDto.success("QR code uploaded. Buyer has been notified.", response));
+    }
+
+    @PostMapping("/payments/{paymentId}/complete")
+    public ResponseEntity<ApiResponseDto<TransactionResponse>> markComplete(
+            @PathVariable Long paymentId) {
+        TransactionResponse response = paymentService.markComplete(paymentId);
+        return ResponseEntity.ok(ApiResponseDto.success("Order marked as completed.", response));
+    }
 }

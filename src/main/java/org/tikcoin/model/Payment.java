@@ -2,6 +2,7 @@ package org.tikcoin.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+ import org.tikcoin.enums.OrderStatus;
 import org.tikcoin.enums.PaymentStatus;
 
 import java.math.BigDecimal;
@@ -46,6 +47,14 @@ public class Payment {
     @Column(nullable = false)
     private boolean tiktokAuthenticated;
 
+    @Enumerated(EnumType.STRING)
+    private OrderStatus orderStatus;
+
+    @Column(columnDefinition = "TEXT")
+    private String qrCode;
+
+    private LocalDateTime qrUploadedAt;
+    private LocalDateTime completedAt;
     private LocalDateTime paidAt;
     private LocalDateTime createdAt;
 }

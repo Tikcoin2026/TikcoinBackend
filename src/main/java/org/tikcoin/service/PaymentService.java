@@ -5,11 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.tikcoin.dto.request.PaymentInitRequest;
 import org.tikcoin.dto.response.PaymentInitResponse;
 import org.tikcoin.dto.response.TransactionResponse;
+import org.tikcoin.enums.OrderStatus;
 import org.tikcoin.enums.PaymentStatus;
 import org.tikcoin.exception.BadRequestException;
 import org.tikcoin.exception.ResourceNotFoundException;
@@ -37,6 +39,8 @@ public class PaymentService {
     private final BuyerRepository buyerRepository;
     private final PaystackService paystackService;
     private final FirebaseNotificationService firebaseNotificationService;
+    private final EmailService emailService;
+    private final SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -106,10 +110,11 @@ public class PaymentService {
             }
 
             if (payment.getPaymentStatus() == PaymentStatus.SUCCESS) {
-                return; // already processed
+                return;
             }
 
             payment.setPaymentStatus(PaymentStatus.SUCCESS);
+            payment.setOrderStatus(OrderStatus.PAYMENT_CONFIRMED);
             payment.setPaidAt(LocalDateTime.now());
             paymentRepository.save(payment);
 
@@ -144,6 +149,7 @@ public class PaymentService {
 
         if ("success".equalsIgnoreCase(status)) {
             payment.setPaymentStatus(PaymentStatus.SUCCESS);
+            payment.setOrderStatus(OrderStatus.PAYMENT_CONFIRMED);
             payment.setPaidAt(LocalDateTime.now());
             paymentRepository.save(payment);
 
@@ -158,6 +164,62 @@ public class PaymentService {
             paymentRepository.save(payment);
         }
 
+        return toTransactionResponse(payment);
+    }
+
+    @Transactional
+    public TransactionResponse uploadQrCode(Long paymentId, String qrCodeBase64) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not found"));
+
+        payment.setQrCode(qrCodeBase64);
+        payment.setOrderStatus(OrderStatus.PROCESSING);
+        payment.setQrUploadedAt(LocalDateTime.now());
+        paymentRepository.save(payment);
+
+        TransactionResponse response = toTransactionResponse(payment);
+        messagingTemplate.convertAndSend("/topic/payments/" + payment.getPaystackReference(), response);
+
+        if (payment.getBuyer() != null) {
+            emailService.sendQrCode(
+                    payment.getBuyer().getEmailAddress(),
+                    payment.getBuyer().getTiktokUsername(),
+                    payment.getCoinAmount(),
+                    qrCodeBase64);
+        }
+
+        logger.info("QR code uploaded for payment {}, order status → PROCESSING", paymentId);
+        return response;
+    }
+
+    @Transactional
+    public TransactionResponse markComplete(Long paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not found"));
+
+        payment.setOrderStatus(OrderStatus.COMPLETED);
+        payment.setCompletedAt(LocalDateTime.now());
+        paymentRepository.save(payment);
+
+        // Notify buyer via WebSocket
+        TransactionResponse response = toTransactionResponse(payment);
+        messagingTemplate.convertAndSend("/topic/payments/" + payment.getPaystackReference(), response);
+
+        // Send completion email
+        if (payment.getBuyer() != null) {
+            emailService.sendOrderCompletion(
+                    payment.getBuyer().getEmailAddress(),
+                    payment.getBuyer().getTiktokUsername(),
+                    payment.getCoinAmount());
+        }
+
+        logger.info("Payment {} marked as COMPLETED", paymentId);
+        return response;
+    }
+
+    public TransactionResponse getPaymentStatus(String reference) {
+        Payment payment = paymentRepository.findByPaystackReference(reference)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not found for reference: " + reference));
         return toTransactionResponse(payment);
     }
 
@@ -179,6 +241,15 @@ public class PaymentService {
             case FAILED -> "Failed";
         };
 
+        String orderStatusLabel = null;
+        if (payment.getOrderStatus() != null) {
+            orderStatusLabel = switch (payment.getOrderStatus()) {
+                case PAYMENT_CONFIRMED -> "Payment confirmed";
+                case PROCESSING -> "Order processing";
+                case COMPLETED -> "Order completed";
+            };
+        }
+
         String tiktokAuthStatus = payment.isTiktokAuthenticated()
                 ? "TikTok authorized"
                 : "TikTok unauthorized";
@@ -190,8 +261,13 @@ public class PaymentService {
                 .coinRate(payment.getCoinRate())
                 .coinAmount(payment.getCoinAmount())
                 .paymentStatus(paymentStatusLabel)
+                .orderStatus(payment.getOrderStatus())
+                .orderStatusLabel(orderStatusLabel)
                 .tiktokAuthStatus(tiktokAuthStatus)
                 .paystackReference(payment.getPaystackReference())
+                .qrCode(payment.getQrCode())
+                .qrUploadedAt(payment.getQrUploadedAt())
+                .completedAt(payment.getCompletedAt())
                 .paidAt(payment.getPaidAt())
                 .createdAt(payment.getCreatedAt())
                 .build();
